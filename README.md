@@ -7,6 +7,9 @@
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-blue.svg)
 ![Docker](https://img.shields.io/badge/Docker-blue.svg)
 
+<img width="1298" height="597" alt="luuu" src="https://github.com/user-attachments/assets/f8e7a152-e4d7-48f5-aea4-5e3a76e36947" />
+
+
 ## 📖 Visão Geral do Projeto
 
 NotificaHub é um microserviço centralizador construído em Java e Spring Boot, projetado para resolver um problema comum em arquiteturas de software modernas: a gestão de notificações para usuários. Em vez de ter lógicas de envio de e-mail, SMS ou push espalhadas por vários sistemas, o NotificaHub oferece uma API única, segura e resiliente para lidar com todas as comunicações.
@@ -35,47 +38,6 @@ Este projeto não foi apenas sobre escrever código, mas sobre tomar decisões d
     > Um serviço centralizador como o NotificaHub não pode falhar. Por isso, o projeto foi desenvolvido com uma forte ênfase em testes automatizados (JUnit 5 e Mockito), cobrindo tanto a lógica de negócio (testes unitários) quanto os fluxos da API (testes de integração), garantindo que novas funcionalidades não quebrem o comportamento existente.
 
 ---
-
-## 🏛️ Arquitetura e Fluxo de Dados
-
-O diagrama abaixo ilustra os dois principais fluxos da aplicação: o envio imediato e o agendamento de notificações.
-
-```mermaid
-graph TD
-    subgraph "Atores Externos"
-        A[Cliente da API com Token JWT]
-        Scheduler["⏰ Tarefa Agendada (Scheduler)"]
-    end
-
-    subgraph "NotificaHub Microservice"
-        B[API REST <br> (Controller)]
-        C[Lógica de Negócio <br> (Service)]
-        D[Persistência de Dados <br> (Repository)]
-        F[Cliente Feign <br> (Integração)]
-    end
-
-    subgraph "Infraestrutura & Serviços Externos"
-        E[Banco de Dados <br> (PostgreSQL / H2)]
-        G[API Externa <br> (Ex: SendGrid)]
-    end
-
-    %% Fluxo de Envio Imediato
-    A -- 1. Requisição /enviar --> B
-    B -- 2. Chama serviço --> C
-    C -- 3. Chama cliente Feign --> F
-    F -- 4. Envia E-mail --> G
-    C -- 5. Salva Log --> D
-    D -- 6. Grava no Banco --> E
-
-    %% Fluxo de Agendamento
-    A -- "1. Requisição /agendar" --> B
-    B -- "2. Chama serviço para agendar" --> C
-    C -- "3. Salva Agendamento (Status: AGUARDANDO)" --> D
-
-    Scheduler -- "A cada minuto" --> C
-    C -- "Verifica agendamentos" --> D
-    D -- "Retorna agendamentos pendentes" --> C
-```
 
 ---
 
@@ -172,10 +134,3 @@ Você pode rodar a aplicação com um banco de dados PostgreSQL (via Docker) ou 
     * Aguarde o horário agendado e verifique o recebimento do e-mail.
 
 ---
-
-## 👤 Autor
-
-**Sidney Fernandes**
-
--   [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL-DO-LINKEDIN/)
--   [GitHub](https://github.com/SdneyFernandes)
