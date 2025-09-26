@@ -11,7 +11,7 @@
 
 NotificaHub é um microserviço centralizador construído em Java e Spring Boot, projetado para resolver um problema comum em arquiteturas de software modernas: a gestão de notificações para usuários. Em vez de ter lógicas de envio de e-mail, SMS ou push espalhadas por vários sistemas, o NotificaHub oferece uma API única, segura e resiliente para lidar com todas as comunicações.
 
-O projeto demonstra a construção de um serviço de backend robusto, desde a modelagem dos dados e segurança da API até a integração com serviços externos e a automação de tarefas.
+O projeto demonstra a construção de um serviço de backend robusto, desde a modelagem dos dados e segurança da API até a integração com serviços externos e a **automação de tarefas agendadas**.
 
 ---
 
@@ -38,14 +38,17 @@ Este projeto não foi apenas sobre escrever código, mas sobre tomar decisões d
 
 ## 🏛️ Arquitetura e Fluxo de Dados
 
+O diagrama abaixo ilustra os dois principais fluxos da aplicação: o envio imediato e o agendamento de notificações.
+
 ```mermaid
 graph TD
-    subgraph "Cliente da API (Ex: Outro Microserviço)"
-        A[Cliente com Token JWT]
+    subgraph "Atores Externos"
+        A[Cliente da API com Token JWT]
+        Scheduler["⏰ Tarefa Agendada (Scheduler)"]
     end
 
     subgraph "NotificaHub Microservice"
-        B[API REST Segura <br> (Controller)]
+        B[API REST <br> (Controller)]
         C[Lógica de Negócio <br> (Service)]
         D[Persistência de Dados <br> (Repository)]
         F[Cliente Feign <br> (Integração)]
@@ -56,12 +59,22 @@ graph TD
         G[API Externa <br> (Ex: SendGrid)]
     end
 
-    A -- Requisição HTTP --> B
-    B -- Chama --> C
-    C -- Salva/Lê --> D
-    D -- Comunica com --> E
-    C -- Chama --> F
-    F -- Requisição HTTP --> G
+    %% Fluxo de Envio Imediato
+    A -- 1. Requisição /enviar --> B
+    B -- 2. Chama serviço --> C
+    C -- 3. Chama cliente Feign --> F
+    F -- 4. Envia E-mail --> G
+    C -- 5. Salva Log --> D
+    D -- 6. Grava no Banco --> E
+
+    %% Fluxo de Agendamento
+    A -- "1. Requisição /agendar" --> B
+    B -- "2. Chama serviço para agendar" --> C
+    C -- "3. Salva Agendamento (Status: AGUARDANDO)" --> D
+
+    Scheduler -- "A cada minuto" --> C
+    C -- "Verifica agendamentos" --> D
+    D -- "Retorna agendamentos pendentes" --> C
 ```
 
 ---
@@ -72,6 +85,7 @@ graph TD
 -   **Segurança:** Spring Security 6, JSON Web Token (JWT)
 -   **Banco de Dados:** Spring Data JPA / Hibernate, PostgreSQL (em Docker), H2 (para desenvolvimento/testes)
 -   **Integração:** Spring Cloud OpenFeign
+-   **Tarefas Agendadas:** Spring Scheduler (`@Scheduled`)
 -   **Testes:** JUnit 5, Mockito, MockMvc, JaCoCo
 -   **DevOps:** Docker & Docker Compose
 -   **Build & Dependências:** Maven, Lombok
@@ -90,18 +104,20 @@ graph TD
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [https://github.com/SEU-USUARIO/notificahub-microservice.git](https://github.com/SEU-USUARIO/notificahub-microservice.git)
-    cd notificahub-microservice
+    git clone [https://github.com/SdneyFernandes/NotificaHub.git](https://github.com/SdneyFernandes/NotificaHub.git)
+    cd NotificaHub
     ```
 
 2.  **Configure a API do SendGrid:**
     * Crie uma conta gratuita no [SendGrid](https://sendgrid.com/) e uma API Key.
     * Verifique um e-mail remetente ("Single Sender Verification").
-    * Abra o arquivo `src/main/resources/application.properties` e preencha os seguintes campos:
-      ```properties
-      sendgrid.api-key=SUA_CHAVE_DE_API_DO_SENDGRID_AQUI
-      sendgrid.from-email=seu-email-verificado@exemplo.com
-      ```
+    * Na pasta `src/main/resources/`, crie um arquivo `application-local.properties`.
+    * Adicione suas chaves secretas a este arquivo:
+        ```properties
+        sendgrid.api-key=SUA_CHAVE_DE_API_DO_SENDGRID_AQUI
+        jwt.secret.key=SUA_CHAVE_SECRETA_BASE64_AQUI
+        ```
+    * No arquivo `application.properties`, garanta que a linha `spring.profiles.active=local` está presente.
 
 ### 2. Executando a Aplicação
 Você pode rodar a aplicação com um banco de dados PostgreSQL (via Docker) ou um H2 em memória.
@@ -121,26 +137,39 @@ Você pode rodar a aplicação com um banco de dados PostgreSQL (via Docker) ou 
 1.  **Obtenha um Token de Acesso:**
     * Faça uma requisição `POST` para `http://localhost:8080/api/auth/login`
     * `Body` (raw/JSON):
-      ```json
-      {
-        "username": "user",
-        "password": "password"
-      }
-      ```
+        ```json
+        {
+          "username": "user",
+          "password": "password"
+        }
+        ```
     * Copie o `token` da resposta.
 
-2.  **Envie uma Notificação:**
+2.  **Envie uma Notificação Imediata:**
     * Faça uma requisição `POST` para `http://localhost:8080/api/notificacoes/enviar`
     * **Authorization:** Na aba `Authorization`, tipo `Bearer Token`, cole o token.
     * `Body` (raw/JSON):
-      ```json
-      {
-        "destinatario": "seu-email-de-verdade@exemplo.com",
-        "mensagem": "Teste da API NotificaHub!",
-        "canal": "EMAIL"
-      }
-      ```
-    * Você deverá receber um e-mail de teste.
+        ```json
+        {
+          "destinatario": "seu-email-de-verdade@exemplo.com",
+          "mensagem": "Teste da API NotificaHub!",
+          "canal": "EMAIL"
+        }
+        ```
+
+3.  **Agende uma Notificação:**
+    * Faça uma requisição `POST` para `http://localhost:8080/api/notificacoes/agendar`
+    * Use o mesmo **Bearer Token** na aba `Authorization`.
+    * `Body` (raw/JSON), com uma data e hora no futuro:
+        ```json
+        {
+          "destinatario": "seu-email-de-verdade@exemplo.com",
+          "mensagem": "Esta é uma mensagem agendada!",
+          "canal": "EMAIL",
+          "dataAgendamento": "2025-09-26T14:30:00"
+        }
+        ```
+    * Aguarde o horário agendado e verifique o recebimento do e-mail.
 
 ---
 
