@@ -143,3 +143,10 @@ Você pode rodar a aplicação com um banco de dados PostgreSQL (via Docker) ou 
     * Você deverá receber um e-mail de teste.
 
 ---
+
+## 👤 Autor
+
+**Sidney Fernandes**
+
+-   [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL-DO-LINKEDIN/)
+-   [GitHub](https://github.com/SdneyFernandes)
